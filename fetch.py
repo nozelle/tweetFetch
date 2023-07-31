@@ -1,51 +1,55 @@
 import streamlit as st
+import tweepy
+import requests
+from io import BytesIO
+from PIL import Image
 
+# Twitter API credentials
+consumer_key = 'YOUR_CONSUMER_KEY'
+consumer_secret = 'YOUR_CONSUMER_SECRET'
+access_token = 'YOUR_ACCESS_TOKEN'
+access_token_secret = 'YOUR_ACCESS_TOKEN_SECRET'
+
+# Twitter authentication and API setup
+auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+auth.set_access_token(access_token, access_token_secret)
+api = tweepy.API(auth)
+
+# Function to extract image and tweet text from the Twitter link
+def extract_tweet_info(tweet_url):
+    tweet_id = tweet_url.split('/')[-1]
+    try:
+        tweet = api.get_status(tweet_id, tweet_mode='extended')
+        tweet_text = tweet.full_text
+        if 'media' in tweet.entities:
+            media_url = tweet.entities['media'][0]['media_url_https']
+            image_response = requests.get(media_url)
+            image = Image.open(BytesIO(image_response.content))
+            return tweet_text, image
+        else:
+            return tweet_text, None
+    except tweepy.TweepError as e:
+        st.error(f"Error: {e}")
+        return None, None
+
+# Streamlit app
 def main():
-    st.title("Malama Carbon Footprint Calculator")
+    st.title("Twitter Image and Tweet Text Extractor")
+    st.write("Enter a Twitter link below to extract the image and tweet text.")
 
-    # Initialize variables to store user inputs
-    energy_consumption = 0
-    transportation_emissions = 0
-    diet_emissions = 0
-    waste_production = 0
-    shopping_habits = 0
+    tweet_url = st.text_input("Twitter URL", "")
 
-    st.write("Please answer the following questions to calculate your carbon footprint:")
+    if st.button("Extract"):
+        if tweet_url:
+            tweet_text, image = extract_tweet_info(tweet_url)
+            if tweet_text and image:
+                st.image(image, caption=tweet_text, use_column_width=True)
+            elif tweet_text:
+                st.write(tweet_text)
+            else:
+                st.error("Failed to extract tweet information. Please check the URL.")
+        else:
+            st.warning("Please enter a Twitter URL.")
 
-    # Question 1: Energy consumption
-    energy_consumption = st.slider("1. Energy Consumption (kWh per month)", min_value=0, max_value=1000, step=10)
-
-    # Question 2: Transportation
-    transportation_emissions = st.slider("2. Transportation Emissions (kg CO2 per year)", min_value=0, max_value=10000, step=100)
-
-    # Question 3: Diet
-    diet_options = ["Plant-based", "Mixed (Some meat and dairy)", "High meat and dairy"]
-    diet_emissions = st.selectbox("3. Diet", diet_options)
-
-    # Question 4: Waste production
-    waste_production = st.slider("4. Waste Production (kg per week)", min_value=0, max_value=100, step=1)
-
-    # Question 5: Shopping habits
-    shopping_options = ["Minimal waste (buying local, reducing packaging, etc.)", "Regular shopping habits"]
-    shopping_habits = st.selectbox("5. Shopping Habits", shopping_options)
-
-    # Calculate total carbon footprint based on the user's inputs
-    total_carbon_footprint = energy_consumption * 0.35 + transportation_emissions * 0.15
-
-    if diet_emissions == "Plant-based":
-        total_carbon_footprint += 150
-    elif diet_emissions == "Mixed (Some meat and dairy)":
-        total_carbon_footprint += 400
-    elif diet_emissions == "High meat and dairy":
-        total_carbon_footprint += 800
-
-    total_carbon_footprint += waste_production * 0.1
-
-    st.markdown("<h2>Your estimated carbon footprint is:</h2>", unsafe_allow_html=True)
-
-    # Display the total_carbon_footprint value in a card format
-    total_carbon_footprint = int(total_carbon_footprint)
-    st.info(f"{total_carbon_footprint} kg CO2 per year")
-    
 if __name__ == "__main__":
     main()
